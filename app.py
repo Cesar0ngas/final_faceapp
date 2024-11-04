@@ -90,22 +90,26 @@ if group == "B":
             student_table.dataframe(df_students.sort_values(by='matricula'))
             st.success("Table refreshed.")
 
-        # Option to capture a photo using the camera
-        captured_image = st.camera_input("Take a photo")
-        if captured_image is not None:
-            # Display and process the captured image
-            image = Image.open(captured_image)
-            detected_matricula = predict_image(image)
-            if detected_matricula:
-                students_collection.update_one(
-                    {"matricula": detected_matricula}, 
-                    {"$set": {"attendance": True}}
-                )
-                attendance_collection.insert_one({
-                    "name": detected_matricula, 
-                    "timestamp": datetime.now()
-                })
-                st.success(f"Attendance marked for student ID: {detected_matricula}")
+        # Button to open the camera input
+        open_camera = st.button("Open Camera")
+
+        # Show camera input only when the button is clicked
+        if open_camera:
+            captured_image = st.camera_input("Take a photo")
+            if captured_image is not None:
+                # Display and process the captured image
+                image = Image.open(captured_image)
+                detected_matricula = predict_image(image)
+                if detected_matricula:
+                    students_collection.update_one(
+                        {"matricula": detected_matricula}, 
+                        {"$set": {"attendance": True}}
+                    )
+                    attendance_collection.insert_one({
+                        "name": detected_matricula, 
+                        "timestamp": datetime.now()
+                    })
+                    st.success(f"Attendance marked for student ID: {detected_matricula}")
 
         # Option to upload an image manually for identification
         uploaded_image = st.file_uploader("Upload an image to identify", type=["jpg", "png"])
