@@ -113,7 +113,7 @@ elif page == "Attendance":
             st.subheader("Camera and Image Upload")
 
             # Toggle for camera input
-            camera_active = st.checkbox("Open Camera", key="camera_toggle")
+            camera_active = st.toggle("Open Camera", key="camera_toggle")
             
             if camera_active:
                 captured_image = st.camera_input("Take a photo", key="camera_input")
