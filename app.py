@@ -53,6 +53,7 @@ def predict_image(image):
 
 # URL de la imagen en GitHub
 LOGO_URL = "https://raw.githubusercontent.com/Cesar0ngas/final_faceapp/main/upylogo.png"
+BACKGROUND_URL = "https://raw.githubusercontent.com/Cesar0ngas/final_faceapp/main/blanco.jpg"  # URL de fondo
 
 # Mostrar el logo en el sidebar
 st.sidebar.image(LOGO_URL, use_column_width=True)
@@ -67,15 +68,17 @@ group = st.sidebar.selectbox("Select Group", ["A", "B"] if career == "Data Engin
 if group == "B":
     col1, col2, col3 = st.columns([2, 1, 1])
 
-    # First column: display student table
+    # First column: display student table with background
     with col1:
+        st.image(BACKGROUND_URL, use_column_width=True)
         st.subheader("Student Data for Group B")
         df_students = pd.DataFrame(list(students_collection.find({}, {"_id": 0, "name": 1, "matricula": 1, "attendance": 1})))
         student_table = st.empty()
         student_table.dataframe(df_students.sort_values(by='matricula'))
 
-    # Second column: options for adding students and refreshing the table
+    # Second column: options for adding students and refreshing the table with background
     with col2:
+        st.image(BACKGROUND_URL, use_column_width=True)
         st.subheader("Add a New Student")
         name = st.text_input("Student Name")
         matricula = st.text_input("Student ID")
@@ -99,12 +102,13 @@ if group == "B":
             attendance_collection.delete_many({})
             st.success("Attendance cleared successfully.")
 
-    # Third column: options to capture photo and upload an image
+    # Third column: options to capture photo and upload an image with background
     with col3:
+        st.image(BACKGROUND_URL, use_column_width=True)
         st.subheader("Camera and Image Upload")
 
         # Toggle for camera input
-        camera_active = st.toggle("Open Camera", key="camera_toggle")
+        camera_active = st.checkbox("Open Camera", key="camera_toggle")
         
         if camera_active:
             captured_image = st.camera_input("Take a photo", key="camera_input")
