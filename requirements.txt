@@ -1,0 +1,9 @@
+streamlit
+pandas
+numpy
+requests
+pillow
+pymongo
+tensorflow
+keras
+keras-facenet
