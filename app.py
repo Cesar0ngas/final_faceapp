@@ -132,9 +132,3 @@ if group == "B":
                     "timestamp": datetime.now()
                 })
                 st.success(f"Attendance marked for student ID: {detected_matricula}")
-
-        # Button to clear all attendance records
-        if st.button("Clear Attendance"):
-            students_collection.update_many({}, {"$set": {"attendance": False}})
-            attendance_collection.delete_many({})
-            st.success("Attendance cleared successfully.")
