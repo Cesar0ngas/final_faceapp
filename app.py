@@ -59,21 +59,18 @@ group = st.sidebar.selectbox("Select Group", ["A", "B"] if career == "Data Engin
 
 # Show camera option and other functionalities only if Group B is selected
 if group == "B":
-    col1, col2 = st.columns([2, 1])
+    col1, col2, col3 = st.columns([2, 1, 1])
 
-    # Left column: display student table
+    # First column: display student table
     with col1:
         st.subheader("Student Data for Group B")
         df_students = pd.DataFrame(list(students_collection.find({}, {"_id": 0, "name": 1, "matricula": 1, "attendance": 1})))
         student_table = st.empty()
         student_table.dataframe(df_students.sort_values(by='matricula'))
 
-    # Right column: options for adding students and capturing photo
+    # Second column: options for adding students and refreshing the table
     with col2:
-        st.subheader("Options")
-
-        # Form to add a new student
-        st.write("Add a New Student")
+        st.subheader("Add a New Student")
         name = st.text_input("Student Name")
         matricula = st.text_input("Student ID")
         
@@ -90,10 +87,19 @@ if group == "B":
             student_table.dataframe(df_students.sort_values(by='matricula'))
             st.success("Table refreshed.")
 
-        # Button to open the camera
-        camera_active = st.toggle("Open Camera")
+        # Button to clear all attendance records
+        if st.button("Clear Attendance"):
+            students_collection.update_many({}, {"$set": {"attendance": False}})
+            attendance_collection.delete_many({})
+            st.success("Attendance cleared successfully.")
+
+    # Third column: options to capture photo and upload an image
+    with col3:
+        st.subheader("Camera and Image Upload")
+
+        # Toggle for camera input
+        camera_active = st.checkbox("Open Camera")
         
-        # Si el usuario hace clic en el botón, se activa la cámara
         if camera_active:
             captured_image = st.camera_input("Take a photo")
             if captured_image is not None:
@@ -110,6 +116,22 @@ if group == "B":
                         "timestamp": datetime.now()
                     })
                     st.success(f"Attendance marked for student ID: {detected_matricula}")
+
+        # Option to upload an image manually for identification
+        uploaded_image = st.file_uploader("Upload an image to identify", type=["jpg", "png"])
+        if uploaded_image:
+            image = Image.open(uploaded_image)
+            detected_matricula = predict_image(image)
+            if detected_matricula:
+                students_collection.update_one(
+                    {"matricula": detected_matricula}, 
+                    {"$set": {"attendance": True}}
+                )
+                attendance_collection.insert_one({
+                    "name": detected_matricula, 
+                    "timestamp": datetime.now()
+                })
+                st.success(f"Attendance marked for student ID: {detected_matricula}")
 
         # Option to upload an image manually for identification
         uploaded_image = st.file_uploader("Upload an image to identify", type=["jpg", "png"])
