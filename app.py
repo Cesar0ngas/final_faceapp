@@ -90,11 +90,8 @@ if group == "B":
             student_table.dataframe(df_students.sort_values(by='matricula'))
             st.success("Table refreshed.")
 
-        # Button to open the camera input
-        open_camera = st.button("Open Camera")
-
-        # Show camera input only when the button is clicked
-        if open_camera:
+        # Button to open the camera
+        if st.button("Open Camera"):
             captured_image = st.camera_input("Take a photo")
             if captured_image is not None:
                 # Display and process the captured image
