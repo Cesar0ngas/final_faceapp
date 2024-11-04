@@ -91,7 +91,7 @@ if group == "B":
             st.success("Table refreshed.")
 
         # Button to open the camera
-        camera_active = st.button("Open Camera")
+        camera_active = st.toggle("Open Camera")
         
         # Si el usuario hace clic en el botón, se activa la cámara
         if camera_active:
