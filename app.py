@@ -98,10 +98,10 @@ if group == "B":
         st.subheader("Camera and Image Upload")
 
         # Toggle for camera input
-        camera_active = st.toggle("Open Camera")
+        camera_active = st.checkbox("Open Camera", key="camera_toggle")
         
         if camera_active:
-            captured_image = st.camera_input("Take a photo")
+            captured_image = st.camera_input("Take a photo", key="camera_input")
             if captured_image is not None:
                 # Display and process the captured image
                 image = Image.open(captured_image)
@@ -116,6 +116,22 @@ if group == "B":
                         "timestamp": datetime.now()
                     })
                     st.success(f"Attendance marked for student ID: {detected_matricula}")
+
+        # Option to upload an image manually for identification
+        uploaded_image = st.file_uploader("Upload an image to identify", type=["jpg", "png"], key="file_uploader")
+        if uploaded_image:
+            image = Image.open(uploaded_image)
+            detected_matricula = predict_image(image)
+            if detected_matricula:
+                students_collection.update_one(
+                    {"matricula": detected_matricula}, 
+                    {"$set": {"attendance": True}}
+                )
+                attendance_collection.insert_one({
+                    "name": detected_matricula, 
+                    "timestamp": datetime.now()
+                })
+                st.success(f"Attendance marked for student ID: {detected_matricula}")
 
         # Button to clear all attendance records
         if st.button("Clear Attendance"):
