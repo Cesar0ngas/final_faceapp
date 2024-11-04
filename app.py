@@ -51,17 +51,23 @@ def predict_image(image):
         st.error(f"Error connecting to the API: {e}")
         return None
 
+# URL del logo
+LOGO_URL = "https://raw.githubusercontent.com/Cesar0ngas/final_faceapp/main/upylogo.png"
+
 # Sidebar navigation
 st.sidebar.title("Navigation")
 page = st.sidebar.selectbox("Go to", ["Home", "Attendance"])
 
 if page == "Home":
-    # URL de la imagen de bienvenida en GitHub
+    # Imagen de bienvenida en la página de inicio
     WELCOME_IMAGE_URL = "https://github.com/Cesar0ngas/final_faceapp/blob/main/UPY%20Attendance%20Systema.jpg?raw=true"
-    st.image(WELCOME_IMAGE_URL, caption="Welcome to the UPY Attendance System", use_column_width=True)
+    st.image(WELCOME_IMAGE_URL, use_column_width=True)
     st.write("Please go to the 'Attendance' section from the sidebar to mark attendance.")
 
 elif page == "Attendance":
+    # Mostrar el logo en el sidebar solo en la página de Attendance
+    st.sidebar.image(LOGO_URL, use_column_width=True)
+
     career = st.sidebar.selectbox("Select Career", ["Data Engineer", "Cybersecurity", "Embedded Systems", "Robotics"])
     quarter = st.sidebar.selectbox("Select Quarter", ["Immersion", "Third Quarter", "Sixth Quarter", "Ninth Quarter"])
     group = st.sidebar.selectbox("Select Group", ["A", "B"] if career == "Data Engineer" and quarter == "Ninth Quarter" else [])
