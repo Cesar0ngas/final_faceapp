@@ -3,64 +3,24 @@ import pandas as pd
 import numpy as np
 import requests
 import json
-import unicodedata
+import base64
+from PIL import Image
+from io import BytesIO
 from keras_facenet import FaceNet
 from pymongo import MongoClient
 from datetime import datetime
-from PIL import Image
-import cv2  # Importar OpenCV para tomar la foto
+import unicodedata
 
 # Configuración de MongoDB
-print("Configurando MongoDB...")
-try:
-    client = MongoClient("mongodb+srv://cesarcorrea:k9DexhefNDS9GTLs@cluster0.rwqzs.mongodb.net/AttendanceDB?retryWrites=true&w=majority&appName=Cluster0")
-    db = client.AttendanceDB
-    students_collection = db.students
-    attendance_collection = db.attendance
-    print("MongoDB configurado exitosamente.")
-except Exception as e:
-    print(f"Error conectando a MongoDB: {e}")
+client = MongoClient("mongodb+srv://cesarcorrea:k9DexhefNDS9GTLs@cluster0.rwqzs.mongodb.net/AttendanceDB?retryWrites=true&w=majority&appName=Cluster0")
+db = client.AttendanceDB
+students_collection = db.students
+attendance_collection = db.attendance
 
-# Configuración de la API
-API_URL = "https://face-recog-ml-ztsfu.eastus.inference.ml.azure.com/score"
+API_URL = "https://face-recog-ml-ztsfu.eastus.inference.ml.azure.com/score"  # URL de la API de reconocimiento facial
 
 # Configurar el modelo de FaceNet
-print("Cargando modelo de FaceNet...")
-try:
-    embedder = FaceNet()
-    print("Modelo de FaceNet cargado.")
-except Exception as e:
-    print(f"Error cargando FaceNet: {e}")
-
-# Función para normalizar el nombre
-def normalize_string(s):
-    return unicodedata.normalize('NFD', s).encode('ascii', 'ignore').decode("utf-8").lower()
-
-# Función para cargar datos de estudiantes desde MongoDB
-def load_students_data():
-    students_data = list(students_collection.find({}, {"_id": 0, "name": 1, "matricula": 1, "attendance": 1}))
-    if students_data:
-        return pd.DataFrame(students_data)
-    else:
-        return pd.DataFrame(columns=["name", "matricula", "attendance"])
-
-# Función para limpiar la asistencia
-def clear_attendance():
-    students_collection.update_many({}, {"$set": {"attendance": False}})
-    today = datetime.now()
-    attendance_collection.delete_many({
-        "date": {"$gte": today.replace(hour=0, minute=0, second=0, microsecond=0),
-                 "$lt": today.replace(hour=23, minute=59, second=59, microsecond=999999)}
-    })
-    st.success("Asistencia borrada exitosamente.")
-
-# Función para agregar un estudiante
-def add_student(name, matricula):
-    if students_collection.find_one({"matricula": matricula}):
-        st.warning(f"El estudiante con matrícula {matricula} ya existe.")
-    else:
-        students_collection.insert_one({"name": name, "matricula": matricula, "attendance": False})
-        st.success(f"Estudiante {name} agregado exitosamente.")
+embedder = FaceNet()
 
 # Función para predecir usando la API de reconocimiento facial
 def predict_image(image):
@@ -72,7 +32,6 @@ def predict_image(image):
 
     embedding = detections[0]["embedding"]
 
-    # Preparar los datos en formato JSON para enviarlos a la API
     data = {"data": [embedding.tolist()]}
     headers = {
         'Content-Type': 'application/json',
@@ -94,124 +53,131 @@ def predict_image(image):
         st.error(f"Error conectando con la API: {e}")
         return None
 
-# Función para tomar foto desde la cámara
-def take_photo():
-    cap = cv2.VideoCapture(0)
-    st.info("Presiona 's' para tomar la foto y 'q' para salir.")
-    img_path = None
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        cv2.imshow("Presiona 's' para tomar la foto", frame)
-        if cv2.waitKey(1) & 0xFF == ord('s'):
-            img_path = "captured_image.jpg"
-            cv2.imwrite(img_path, frame)
-            st.image(img_path, caption="Foto tomada", use_column_width=True)
-            cap.release()
-            cv2.destroyAllWindows()
-            break
-        elif cv2.waitKey(1) & 0xFF == ord('q'):
-            cap.release()
-            cv2.destroyAllWindows()
-            break
-    return img_path
+# Función para manejar la imagen Base64
+def handle_uploaded_image(data_url):
+    image_data = base64.b64decode(data_url.split(",")[1])
+    image = Image.open(BytesIO(image_data))
+    return image
 
-# Interfaz de Streamlit
+# Interfaz para capturar foto desde la cámara usando HTML y JavaScript
+st.markdown("""
+    <h3>Tomar Foto desde la Cámara</h3>
+    <p>Permite acceso a la cámara y toma una foto que se enviará a Streamlit.</p>
+    <div>
+        <button id="start-camera">Abrir Cámara</button>
+        <video id="video" width="100%" autoplay style="display:none;"></video>
+        <button id="click-photo" style="display:none;">Tomar Foto</button>
+        <canvas id="canvas" style="display:none;"></canvas>
+    </div>
+    <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const startCamera = document.getElementById('start-camera');
+    const clickPhoto = document.getElementById('click-photo');
+    
+    startCamera.addEventListener('click', async function() {
+        video.style.display = 'block';
+        clickPhoto.style.display = 'block';
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+    });
+
+    clickPhoto.addEventListener('click', function() {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataURL = canvas.toDataURL('image/jpeg');
+        
+        // Enviar la imagen a Streamlit usando JSON
+        fetch('/send_image', {
+            method: 'POST',
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({image_data: dataURL})
+        }).then(response => {
+            if (response.ok) {
+                console.log('Imagen enviada exitosamente');
+            } else {
+                console.error('Error enviando la imagen');
+            }
+        });
+    });
+    </script>
+""", unsafe_allow_html=True)
+
+# Captura y procesamiento de la imagen
+if 'image_data' in st.session_state:
+    image = handle_uploaded_image(st.session_state['image_data'])
+    st.image(image, caption="Foto tomada", use_column_width=True)
+    
+    # Realizar la predicción
+    detected_matricula = predict_image(image)
+    if detected_matricula:
+        # Marcar asistencia en la base de datos
+        students_collection.update_one(
+            {"matricula": detected_matricula}, 
+            {"$set": {"attendance": True}}
+        )
+        attendance_collection.insert_one({
+            "name": detected_matricula, 
+            "timestamp": datetime.now()
+        })
+        st.success(f"Asistencia marcada para la matrícula: {detected_matricula}")
+
+# Barra lateral para seleccionar la clase
 st.sidebar.title("Navegación")
-page = st.sidebar.selectbox("Selecciona una página", ["Inicio", "Asistencia", "Reporte de Asistencia"])
+career = st.sidebar.selectbox("Selecciona Carrera", ["Data Engineer", "Cybersecurity", "Embedded Systems", "Robotics"])
+quarter = st.sidebar.selectbox("Selecciona Cuatrimestre", ["Immersion", "Third Quarter", "Sixth Quarter", "Ninth Quarter"])
+group = st.sidebar.selectbox("Selecciona Grupo", ["A", "B"] if career == "Data Engineer" and quarter == "Ninth Quarter" else [])
 
-# Página de inicio
-if page == "Inicio":
-    st.title("Sistema de Asistencia UPY")
-    st.write("Bienvenido al Sistema de Asistencia. Usa la barra lateral para interactuar con la aplicación.")
+if group == "B":
+    col1, col2 = st.columns([2, 1])
 
-# Página de asistencia
-elif page == "Asistencia":
-    st.title("Sistema de Asistencia")
+    # Columna izquierda: mostrar la tabla de estudiantes
+    with col1:
+        st.subheader("Datos de estudiantes para el grupo B")
+        df_students = pd.DataFrame(list(students_collection.find({}, {"_id": 0, "name": 1, "matricula": 1, "attendance": 1})))
+        student_table = st.empty()
+        student_table.dataframe(df_students.sort_values(by='matricula'))
 
-    st.sidebar.subheader("Información de la Clase")
-    career = st.sidebar.selectbox("Selecciona Carrera", ["Data Engineer", "Cybersecurity", "Embedded Systems", "Robotics"])
-    quarter = st.sidebar.selectbox("Selecciona Cuatrimestre", ["Immersion", "Third Quarter", "Sixth Quarter", "Ninth Quarter"])
-    group = st.sidebar.selectbox("Selecciona Grupo", ["A", "B"] if career == "Data Engineer" and quarter == "Ninth Quarter" else [])
+    # Columna derecha: opciones de carga de imagen y agregar estudiante
+    with col2:
+        st.subheader("Opciones")
 
-    if group == "B":
-        col1, col2 = st.columns([2, 1])
+        # Formulario para agregar un nuevo estudiante
+        st.write("Agregar un nuevo estudiante")
+        name = st.text_input("Nombre del Estudiante")
+        matricula = st.text_input("Matrícula del Estudiante")
+        
+        if st.button("Agregar Estudiante"):
+            if name and matricula:
+                students_collection.insert_one({"name": name, "matricula": matricula, "attendance": False})
+                st.success(f"Estudiante {name} agregado exitosamente.")
+            else:
+                st.warning("Por favor, ingresa el nombre y la matrícula.")
 
-        # Columna izquierda: mostrar la tabla de estudiantes
-        with col1:
-            st.subheader("Datos de estudiantes para el grupo B")
-            df_students = load_students_data()
-            student_table = st.empty()  # Elemento para actualizar la tabla
+        # Botón para actualizar la tabla de estudiantes
+        if st.button("Actualizar Tabla"):
+            df_students = pd.DataFrame(list(students_collection.find({}, {"_id": 0, "name": 1, "matricula": 1, "attendance": 1})))
             student_table.dataframe(df_students.sort_values(by='matricula'))
+            st.success("Tabla actualizada.")
 
-        # Columna derecha: opciones de actualización y carga de imagen
-        with col2:
-            st.subheader("Opciones")
+        # Opción de subir imagen manualmente para identificar
+        uploaded_image = st.file_uploader("Sube una imagen para identificar", type=["jpg", "png"])
+        if uploaded_image:
+            image = Image.open(uploaded_image)
+            detected_matricula = predict_image(image)
+            if detected_matricula:
+                students_collection.update_one(
+                    {"matricula": detected_matricula}, 
+                    {"$set": {"attendance": True}}
+                )
+                attendance_collection.insert_one({
+                    "name": detected_matricula, 
+                    "timestamp": datetime.now()
+                })
+                st.success(f"Asistencia marcada para la matrícula: {detected_matricula}")
 
-            # Formulario para agregar un nuevo estudiante
-            st.write("Agregar un nuevo estudiante")
-            name = st.text_input("Nombre del Estudiante")
-            matricula = st.text_input("Matrícula del Estudiante")
-            
-            if st.button("Agregar Estudiante"):
-                if name and matricula:
-                    add_student(name, matricula)
-                else:
-                    st.warning("Por favor, ingresa el nombre y la matrícula.")
-
-            # Botón para actualizar la tabla de estudiantes
-            if st.button("Actualizar Tabla"):
-                df_students = load_students_data()  # Recargar datos
-                student_table.dataframe(df_students.sort_values(by='matricula'))
-                st.success("Tabla actualizada.")
-
-            # Botón para tomar foto y usarla para identificar estudiante
-            if st.button("Tomar Foto"):
-                img_path = take_photo()
-                if img_path:
-                    image = Image.open(img_path)
-                    detected_matricula = predict_image(image)
-                    if detected_matricula:
-                        # Actualizar asistencia en la base de datos
-                        students_collection.update_one(
-                            {"matricula": detected_matricula}, 
-                            {"$set": {"attendance": True}}
-                        )
-                        attendance_collection.insert_one({
-                            "name": detected_matricula, 
-                            "timestamp": datetime.now()  # Fecha y hora combinadas
-                        })
-                        st.success(f"Asistencia marcada para la matrícula: {detected_matricula}")
-
-            # Opción de subir imagen manualmente
-            uploaded_image = st.file_uploader("Sube una imagen para identificar", type=["jpg", "png"])
-            if uploaded_image:
-                image = Image.open(uploaded_image)
-                detected_matricula = predict_image(image)
-                if detected_matricula:
-                    # Actualizar asistencia en la base de datos
-                    students_collection.update_one(
-                        {"matricula": detected_matricula}, 
-                        {"$set": {"attendance": True}}
-                    )
-                    attendance_collection.insert_one({
-                        "name": detected_matricula, 
-                        "timestamp": datetime.now()  # Fecha y hora combinadas
-                    })
-                    st.success(f"Asistencia marcada para la matrícula: {detected_matricula}")
-
-            if st.button("Limpiar Asistencia"):
-                clear_attendance()
-                st.success("Asistencia limpiada correctamente.")
-
-# Página de reporte de asistencia
-elif page == "Reporte de Asistencia":
-    st.title("Reporte de Asistencia")
-
-    # Cargar y mostrar el reporte de asistencia
-    df_attendance_report = load_students_data()
-    if not df_attendance_report.empty:
-        st.dataframe(df_attendance_report)
-    else:
-        st.write("No hay registros de asistencia para hoy.")
+        if st.button("Limpiar Asistencia"):
+            students_collection.update_many({}, {"$set": {"attendance": False}})
+            attendance_collection.delete_many({})
+            st.success("Asistencia limpiada correctamente.")
