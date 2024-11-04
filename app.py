@@ -51,6 +51,12 @@ def predict_image(image):
         st.error(f"Error connecting to the API: {e}")
         return None
 
+# URL de la imagen en GitHub
+LOGO_URL = "https://raw.githubusercontent.com/Cesar0ngas/final_faceapp/main/upylogo.png"
+
+# Mostrar el logo en el sidebar
+st.sidebar.image(LOGO_URL, use_column_width=True)
+
 # Sidebar for class selection
 st.sidebar.title("Navigation")
 career = st.sidebar.selectbox("Select Career", ["Data Engineer", "Cybersecurity", "Embedded Systems", "Robotics"])
