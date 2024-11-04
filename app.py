@@ -53,7 +53,6 @@ def predict_image(image):
 
 # URL de la imagen en GitHub
 LOGO_URL = "https://raw.githubusercontent.com/Cesar0ngas/final_faceapp/main/upylogo.png"
-BACKGROUND_URL = "https://raw.githubusercontent.com/Cesar0ngas/final_faceapp/main/blanco.jpg"  # URL de fondo
 
 # Mostrar el logo en el sidebar
 st.sidebar.image(LOGO_URL, use_column_width=True)
@@ -64,35 +63,19 @@ career = st.sidebar.selectbox("Select Career", ["Data Engineer", "Cybersecurity"
 quarter = st.sidebar.selectbox("Select Quarter", ["Immersion", "Third Quarter", "Sixth Quarter", "Ninth Quarter"])
 group = st.sidebar.selectbox("Select Group", ["A", "B"] if career == "Data Engineer" and quarter == "Ninth Quarter" else [])
 
-# Mostrar opciones y funcionalidades solo si el grupo es B
+# Show camera option and other functionalities only if Group B is selected
 if group == "B":
     col1, col2, col3 = st.columns([2, 1, 1])
 
-    # Estilo de fondo para cada columna
+    # First column: display student table
     with col1:
-        st.image(BACKGROUND_URL, use_column_width=True)
-        st.markdown(
-            """
-            <div style="position:relative; top:-150px;">
-                <h3>Student Data for Group B</h3>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        st.subheader("Student Data for Group B")
         df_students = pd.DataFrame(list(students_collection.find({}, {"_id": 0, "name": 1, "matricula": 1, "attendance": 1})))
         st.dataframe(df_students.sort_values(by='matricula'))
 
-    # Segunda columna
+    # Second column: options for adding students and refreshing the table
     with col2:
-        st.image(BACKGROUND_URL, use_column_width=True)
-        st.markdown(
-            """
-            <div style="position:relative; top:-150px;">
-                <h3>Add a New Student</h3>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        st.subheader("Add a New Student")
         name = st.text_input("Student Name")
         matricula = st.text_input("Student ID")
         
@@ -115,19 +98,11 @@ if group == "B":
             attendance_collection.delete_many({})
             st.success("Attendance cleared successfully.")
 
-    # Tercera columna
+    # Third column: options to capture photo and upload an image
     with col3:
-        st.image(BACKGROUND_URL, use_column_width=True)
-        st.markdown(
-            """
-            <div style="position:relative; top:-150px;">
-                <h3>Camera and Image Upload</h3>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        st.subheader("Camera and Image Upload")
 
-        # Toggle para cámara
+        # Toggle for camera input
         camera_active = st.toggle("Open Camera", key="camera_toggle")
         
         if camera_active:
