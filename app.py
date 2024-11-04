@@ -68,7 +68,7 @@ if group == "B":
         student_table = st.empty()
         student_table.dataframe(df_students.sort_values(by='matricula'))
 
-    # Right column: options for adding students, uploading images, and capturing photo
+    # Right column: options for adding students and capturing photo
     with col2:
         st.subheader("Options")
 
@@ -91,7 +91,10 @@ if group == "B":
             st.success("Table refreshed.")
 
         # Button to open the camera
-        if st.button("Open Camera"):
+        camera_active = st.button("Open Camera")
+        
+        # Si el usuario hace clic en el botón, se activa la cámara
+        if camera_active:
             captured_image = st.camera_input("Take a photo")
             if captured_image is not None:
                 # Display and process the captured image
