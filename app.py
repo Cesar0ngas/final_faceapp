@@ -117,22 +117,6 @@ if group == "B":
                     })
                     st.success(f"Attendance marked for student ID: {detected_matricula}")
 
-        # Option to upload an image manually for identification
-        uploaded_image = st.file_uploader("Upload an image to identify", type=["jpg", "png"])
-        if uploaded_image:
-            image = Image.open(uploaded_image)
-            detected_matricula = predict_image(image)
-            if detected_matricula:
-                students_collection.update_one(
-                    {"matricula": detected_matricula}, 
-                    {"$set": {"attendance": True}}
-                )
-                attendance_collection.insert_one({
-                    "name": detected_matricula, 
-                    "timestamp": datetime.now()
-                })
-                st.success(f"Attendance marked for student ID: {detected_matricula}")
-
         # Button to clear all attendance records
         if st.button("Clear Attendance"):
             students_collection.update_many({}, {"$set": {"attendance": False}})
