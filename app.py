@@ -11,23 +11,23 @@ from pymongo import MongoClient
 from datetime import datetime
 import unicodedata
 
-# Configuración de MongoDB
+# MongoDB configuration
 client = MongoClient("mongodb+srv://cesarcorrea:k9DexhefNDS9GTLs@cluster0.rwqzs.mongodb.net/AttendanceDB?retryWrites=true&w=majority&appName=Cluster0")
 db = client.AttendanceDB
 students_collection = db.students
 attendance_collection = db.attendance
 
-API_URL = "https://face-recog-ml-ztsfu.eastus.inference.ml.azure.com/score"  # URL de la API de reconocimiento facial
+API_URL = "https://face-recog-ml-ztsfu.eastus.inference.ml.azure.com/score"  # Facial recognition API URL
 
-# Configurar el modelo de FaceNet
+# Configure FaceNet model
 embedder = FaceNet()
 
-# Función para predecir usando la API de reconocimiento facial
+# Predict function using the facial recognition API
 def predict_image(image):
     img_array = np.array(image.convert("RGB"))
     detections = embedder.extract(img_array, threshold=0.95)
     if not detections:
-        st.error("No se detectó ninguna cara en la imagen. Inténtalo de nuevo.")
+        st.error("No face detected in the image. Please try again.")
         return None
 
     embedding = detections[0]["embedding"]
@@ -44,125 +44,125 @@ def predict_image(image):
         result = response.json()
         
         if isinstance(result, list) and len(result) > 0:
-            matricula = result[0]  # Extrae la matrícula
+            matricula = result[0]  # Extract the student ID
             return matricula
         else:
-            st.error("La API no devolvió ningún resultado válido.")
+            st.error("The API did not return a valid result.")
             return None
     except requests.exceptions.RequestException as e:
-        st.error(f"Error conectando con la API: {e}")
+        st.error(f"Error connecting to the API: {e}")
         return None
 
-# Función para manejar la imagen Base64
+# Function to handle Base64 image
 def handle_uploaded_image(data_url):
     image_data = base64.b64decode(data_url.split(",")[1])
     image = Image.open(BytesIO(image_data))
     return image
 
-# Interfaz para capturar foto desde la cámara usando HTML y JavaScript
-st.markdown("""
-    <h3>Tomar Foto desde la Cámara</h3>
-    <p>Permite acceso a la cámara y toma una foto que se enviará a Streamlit.</p>
-    <div>
-        <button id="start-camera">Abrir Cámara</button>
-        <video id="video" width="100%" autoplay style="display:none;"></video>
-        <button id="click-photo" style="display:none;">Tomar Foto</button>
-        <canvas id="canvas" style="display:none;"></canvas>
-    </div>
-    <script>
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const startCamera = document.getElementById('start-camera');
-    const clickPhoto = document.getElementById('click-photo');
-    
-    startCamera.addEventListener('click', async function() {
-        video.style.display = 'block';
-        clickPhoto.style.display = 'block';
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        video.srcObject = stream;
-    });
+# Sidebar for class selection
+st.sidebar.title("Navigation")
+career = st.sidebar.selectbox("Select Career", ["Data Engineer", "Cybersecurity", "Embedded Systems", "Robotics"])
+quarter = st.sidebar.selectbox("Select Quarter", ["Immersion", "Third Quarter", "Sixth Quarter", "Ninth Quarter"])
+group = st.sidebar.selectbox("Select Group", ["A", "B"] if career == "Data Engineer" and quarter == "Ninth Quarter" else [])
 
-    clickPhoto.addEventListener('click', function() {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataURL = canvas.toDataURL('image/jpeg');
-        
-        // Enviar la imagen a Streamlit usando JSON
-        fetch('/send_image', {
-            method: 'POST',
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({image_data: dataURL})
-        }).then(response => {
-            if (response.ok) {
-                console.log('Imagen enviada exitosamente');
-            } else {
-                console.error('Error enviando la imagen');
-            }
-        });
-    });
-    </script>
-""", unsafe_allow_html=True)
-
-# Captura y procesamiento de la imagen
-if 'image_data' in st.session_state:
-    image = handle_uploaded_image(st.session_state['image_data'])
-    st.image(image, caption="Foto tomada", use_column_width=True)
-    
-    # Realizar la predicción
-    detected_matricula = predict_image(image)
-    if detected_matricula:
-        # Marcar asistencia en la base de datos
-        students_collection.update_one(
-            {"matricula": detected_matricula}, 
-            {"$set": {"attendance": True}}
-        )
-        attendance_collection.insert_one({
-            "name": detected_matricula, 
-            "timestamp": datetime.now()
-        })
-        st.success(f"Asistencia marcada para la matrícula: {detected_matricula}")
-
-# Barra lateral para seleccionar la clase
-st.sidebar.title("Navegación")
-career = st.sidebar.selectbox("Selecciona Carrera", ["Data Engineer", "Cybersecurity", "Embedded Systems", "Robotics"])
-quarter = st.sidebar.selectbox("Selecciona Cuatrimestre", ["Immersion", "Third Quarter", "Sixth Quarter", "Ninth Quarter"])
-group = st.sidebar.selectbox("Selecciona Grupo", ["A", "B"] if career == "Data Engineer" and quarter == "Ninth Quarter" else [])
-
+# Show camera option only if Group B is selected
 if group == "B":
+    st.markdown("""
+        <h3>Take a Photo with Camera</h3>
+        <p>This will enable camera access and take a photo that will be sent to Streamlit.</p>
+        <div>
+            <button id="start-camera">Open Camera</button>
+            <video id="video" width="100%" autoplay style="display:none;"></video>
+            <button id="click-photo" style="display:none;">Take Photo</button>
+            <canvas id="canvas" style="display:none;"></canvas>
+        </div>
+        <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const startCamera = document.getElementById('start-camera');
+        const clickPhoto = document.getElementById('click-photo');
+        
+        startCamera.addEventListener('click', async function() {
+            video.style.display = 'block';
+            clickPhoto.style.display = 'block';
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+        });
+
+        clickPhoto.addEventListener('click', function() {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataURL = canvas.toDataURL('image/jpeg');
+            
+            // Send image to Streamlit as JSON
+            fetch('/send_image', {
+                method: 'POST',
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({image_data: dataURL})
+            }).then(response => {
+                if (response.ok) {
+                    console.log('Image sent successfully');
+                } else {
+                    console.error('Error sending image');
+                }
+            });
+        });
+        </script>
+    """, unsafe_allow_html=True)
+
+    # Display and process uploaded image
+    if 'image_data' in st.session_state:
+        image = handle_uploaded_image(st.session_state['image_data'])
+        st.image(image, caption="Captured Photo", use_column_width=True)
+        
+        # Perform prediction
+        detected_matricula = predict_image(image)
+        if detected_matricula:
+            # Mark attendance in the database
+            students_collection.update_one(
+                {"matricula": detected_matricula}, 
+                {"$set": {"attendance": True}}
+            )
+            attendance_collection.insert_one({
+                "name": detected_matricula, 
+                "timestamp": datetime.now()
+            })
+            st.success(f"Attendance marked for student ID: {detected_matricula}")
+
     col1, col2 = st.columns([2, 1])
 
-    # Columna izquierda: mostrar la tabla de estudiantes
+    # Left column: display student table
     with col1:
-        st.subheader("Datos de estudiantes para el grupo B")
+        st.subheader("Student Data for Group B")
         df_students = pd.DataFrame(list(students_collection.find({}, {"_id": 0, "name": 1, "matricula": 1, "attendance": 1})))
         student_table = st.empty()
         student_table.dataframe(df_students.sort_values(by='matricula'))
 
-    # Columna derecha: opciones de carga de imagen y agregar estudiante
+    # Right column: options for adding students and uploading images
     with col2:
-        st.subheader("Opciones")
+        st.subheader("Options")
 
-        # Formulario para agregar un nuevo estudiante
-        st.write("Agregar un nuevo estudiante")
-        name = st.text_input("Nombre del Estudiante")
-        matricula = st.text_input("Matrícula del Estudiante")
+        # Form to add a new student
+        st.write("Add a New Student")
+        name = st.text_input("Student Name")
+        matricula = st.text_input("Student ID")
         
-        if st.button("Agregar Estudiante"):
+        if st.button("Add Student"):
             if name and matricula:
                 students_collection.insert_one({"name": name, "matricula": matricula, "attendance": False})
-                st.success(f"Estudiante {name} agregado exitosamente.")
+                st.success(f"Student {name} added successfully.")
             else:
-                st.warning("Por favor, ingresa el nombre y la matrícula.")
+                st.warning("Please enter both the student name and ID.")
 
-        # Botón para actualizar la tabla de estudiantes
-        if st.button("Actualizar Tabla"):
+        # Button to refresh the student table
+        if st.button("Refresh Table"):
             df_students = pd.DataFrame(list(students_collection.find({}, {"_id": 0, "name": 1, "matricula": 1, "attendance": 1})))
             student_table.dataframe(df_students.sort_values(by='matricula'))
-            st.success("Tabla actualizada.")
+            st.success("Table refreshed.")
 
-        # Opción de subir imagen manualmente para identificar
-        uploaded_image = st.file_uploader("Sube una imagen para identificar", type=["jpg", "png"])
+        # Option to upload an image manually for identification
+        uploaded_image = st.file_uploader("Upload an image to identify", type=["jpg", "png"])
         if uploaded_image:
             image = Image.open(uploaded_image)
             detected_matricula = predict_image(image)
@@ -175,9 +175,10 @@ if group == "B":
                     "name": detected_matricula, 
                     "timestamp": datetime.now()
                 })
-                st.success(f"Asistencia marcada para la matrícula: {detected_matricula}")
+                st.success(f"Attendance marked for student ID: {detected_matricula}")
 
-        if st.button("Limpiar Asistencia"):
+        # Button to clear all attendance records
+        if st.button("Clear Attendance"):
             students_collection.update_many({}, {"$set": {"attendance": False}})
             attendance_collection.delete_many({})
-            st.success("Asistencia limpiada correctamente.")
+            st.success("Attendance cleared successfully.")
