@@ -51,64 +51,79 @@ def predict_image(image):
         st.error(f"Error connecting to the API: {e}")
         return None
 
-# URL de la imagen en GitHub
-LOGO_URL = "https://raw.githubusercontent.com/Cesar0ngas/final_faceapp/main/upylogo.png"
+# Display a welcome image only at the start
+if "group_selected" not in st.session_state:
+    st.session_state["group_selected"] = False  # Track if a group has been selected
 
-# Mostrar el logo en el sidebar
-st.sidebar.image(LOGO_URL, use_column_width=True)
+if not st.session_state["group_selected"]:
+    # URL de la imagen de bienvenida en GitHub
+    WELCOME_IMAGE_URL = "https://github.com/Cesar0ngas/final_faceapp/blob/main/UPY%20Attendance%20Systema.jpg?raw=true"
+    st.image(WELCOME_IMAGE_URL, caption="Welcome to the UPY Attendance System", use_column_width=True)
+    st.write("Please select a group from the sidebar to continue.")
+else:
+    # Sidebar for class selection
+    st.sidebar.title("Navigation")
+    career = st.sidebar.selectbox("Select Career", ["Data Engineer", "Cybersecurity", "Embedded Systems", "Robotics"])
+    quarter = st.sidebar.selectbox("Select Quarter", ["Immersion", "Third Quarter", "Sixth Quarter", "Ninth Quarter"])
+    group = st.sidebar.selectbox("Select Group", ["A", "B"] if career == "Data Engineer" and quarter == "Ninth Quarter" else [])
 
-# Sidebar for class selection
-st.sidebar.title("Navigation")
-career = st.sidebar.selectbox("Select Career", ["Data Engineer", "Cybersecurity", "Embedded Systems", "Robotics"])
-quarter = st.sidebar.selectbox("Select Quarter", ["Immersion", "Third Quarter", "Sixth Quarter", "Ninth Quarter"])
-group = st.sidebar.selectbox("Select Group", ["A", "B"] if career == "Data Engineer" and quarter == "Ninth Quarter" else [])
+    if group == "B":
+        col1, col2, col3 = st.columns([2, 1, 1])
 
-# Show camera option and other functionalities only if Group B is selected
-if group == "B":
-    col1, col2, col3 = st.columns([2, 1, 1])
-
-    # First column: display student table
-    with col1:
-        st.subheader("Student Data for Group B")
-        df_students = pd.DataFrame(list(students_collection.find({}, {"_id": 0, "name": 1, "matricula": 1, "attendance": 1})))
-        st.dataframe(df_students.sort_values(by='matricula'))
-
-    # Second column: options for adding students and refreshing the table
-    with col2:
-        st.subheader("Add a New Student")
-        name = st.text_input("Student Name")
-        matricula = st.text_input("Student ID")
-        
-        if st.button("Add Student"):
-            if name and matricula:
-                students_collection.insert_one({"name": name, "matricula": matricula, "attendance": False})
-                st.success(f"Student {name} added successfully.")
-            else:
-                st.warning("Please enter both the student name and ID.")
-
-        # Button to refresh the student table
-        if st.button("Refresh Table"):
+        # First column: display student table
+        with col1:
+            st.subheader("Student Data for Group B")
             df_students = pd.DataFrame(list(students_collection.find({}, {"_id": 0, "name": 1, "matricula": 1, "attendance": 1})))
             st.dataframe(df_students.sort_values(by='matricula'))
-            st.success("Table refreshed.")
 
-        # Button to clear all attendance records
-        if st.button("Clear Attendance"):
-            students_collection.update_many({}, {"$set": {"attendance": False}})
-            attendance_collection.delete_many({})
-            st.success("Attendance cleared successfully.")
+        # Second column: options for adding students and refreshing the table
+        with col2:
+            st.subheader("Add a New Student")
+            name = st.text_input("Student Name")
+            matricula = st.text_input("Student ID")
+            
+            if st.button("Add Student"):
+                if name and matricula:
+                    students_collection.insert_one({"name": name, "matricula": matricula, "attendance": False})
+                    st.success(f"Student {name} added successfully.")
+                else:
+                    st.warning("Please enter both the student name and ID.")
 
-    # Third column: options to capture photo and upload an image
-    with col3:
-        st.subheader("Camera and Image Upload")
+            if st.button("Refresh Table"):
+                df_students = pd.DataFrame(list(students_collection.find({}, {"_id": 0, "name": 1, "matricula": 1, "attendance": 1})))
+                st.dataframe(df_students.sort_values(by='matricula'))
+                st.success("Table refreshed.")
 
-        # Toggle for camera input
-        camera_active = st.toggle("Open Camera", key="camera_toggle")
-        
-        if camera_active:
-            captured_image = st.camera_input("Take a photo", key="camera_input")
-            if captured_image is not None:
-                image = Image.open(captured_image)
+            if st.button("Clear Attendance"):
+                students_collection.update_many({}, {"$set": {"attendance": False}})
+                attendance_collection.delete_many({})
+                st.success("Attendance cleared successfully.")
+
+        # Third column: options to capture photo and upload an image
+        with col3:
+            st.subheader("Camera and Image Upload")
+
+            camera_active = st.checkbox("Open Camera", key="camera_toggle")
+            
+            if camera_active:
+                captured_image = st.camera_input("Take a photo", key="camera_input")
+                if captured_image is not None:
+                    image = Image.open(captured_image)
+                    detected_matricula = predict_image(image)
+                    if detected_matricula:
+                        students_collection.update_one(
+                            {"matricula": detected_matricula}, 
+                            {"$set": {"attendance": True}}
+                        )
+                        attendance_collection.insert_one({
+                            "name": detected_matricula, 
+                            "timestamp": datetime.now()
+                        })
+                        st.success(f"Attendance marked for student ID: {detected_matricula}")
+
+            uploaded_image = st.file_uploader("Upload an image to identify", type=["jpg", "png"], key="file_uploader")
+            if uploaded_image:
+                image = Image.open(uploaded_image)
                 detected_matricula = predict_image(image)
                 if detected_matricula:
                     students_collection.update_one(
@@ -121,17 +136,6 @@ if group == "B":
                     })
                     st.success(f"Attendance marked for student ID: {detected_matricula}")
 
-        uploaded_image = st.file_uploader("Upload an image to identify", type=["jpg", "png"], key="file_uploader")
-        if uploaded_image:
-            image = Image.open(uploaded_image)
-            detected_matricula = predict_image(image)
-            if detected_matricula:
-                students_collection.update_one(
-                    {"matricula": detected_matricula}, 
-                    {"$set": {"attendance": True}}
-                )
-                attendance_collection.insert_one({
-                    "name": detected_matricula, 
-                    "timestamp": datetime.now()
-                })
-                st.success(f"Attendance marked for student ID: {detected_matricula}")
+# When a selection is made in the sidebar, the welcome screen disappears
+if career or quarter or group:
+    st.session_state["group_selected"] = True
