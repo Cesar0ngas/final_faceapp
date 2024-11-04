@@ -1,6 +1,6 @@
 [theme]
-primaryColor = "#4B0082"         # Color primario para botones y elementos destacados
-backgroundColor = "#F3E5F5"      # Color de fondo de la página (morado suave)
-secondaryBackgroundColor = "#FFFFFF"  # Color de fondo de la barra lateral (blanco)
-textColor = "#333333"            # Color del texto en la página
-font = "sans serif"              # Fuente del texto
+primaryColor = "#4B0082"         
+backgroundColor = "#E1BEE7"      
+secondaryBackgroundColor = "#FFFFFF" 
+textColor = "#333333"           
+font = "sans serif"              
